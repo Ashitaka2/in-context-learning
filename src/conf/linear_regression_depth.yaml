@@ -3,7 +3,7 @@ inherit:
 
 
 model:
-    n_layer: 12
+    n_layer: 1
 
 training:
     task: linear_regression
@@ -13,13 +13,8 @@ training:
             end: 41
             inc: 2
             interval: 2000
-    train_steps: 51
 
 out_dir: ./models/linear_regression
 
-gpu_start: 0
-gpu_num: 4
-
 wandb:
-    name: "linear_regression"
-    notes: "linear_regression_base"
+    name: "linear_regression_standard"

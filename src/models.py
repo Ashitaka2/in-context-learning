@@ -95,7 +95,13 @@ class TransformerModel(nn.Module):
         self.n_positions = n_positions
         self.n_dims = n_dims
         self._read_in = nn.Linear(n_dims, n_embd)
+        
         self._backbone = GPT2Model(configuration)
+        # Zero out the positional embeddings to emulate NoPE
+        with torch.no_grad():
+            self._backbone.wpe.weight.zero_()
+        self._backbone.wpe.weight.requires_grad = False
+
         self._read_out = nn.Linear(n_embd, 1)
 
     @staticmethod
@@ -122,6 +128,7 @@ class TransformerModel(nn.Module):
                 raise ValueError("inds contain indices where xs and ys are not defined")
         zs = self._combine(xs, ys)
         embeds = self._read_in(zs)
+        # print(self._backbone.wpe.weight)
         output = self._backbone(inputs_embeds=embeds).last_hidden_state
         prediction = self._read_out(output)
         return prediction[:, ::2, 0][:, inds]  # predict only on xs

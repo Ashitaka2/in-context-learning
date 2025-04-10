@@ -50,9 +50,9 @@ def eval_batch(model, task_sampler, xs, xs_p=None):
         pred = model(xs.to(device), ys.to(device)).detach()
         metrics = task.get_metric()(pred.cpu(), ys)
     else:
-        b_size, n_points, _ = xs.shape
+        b_size, n_points, _ = xs.shape # n_points는 x를 이루는 개수 (in-context sample의 개수?)
         metrics = torch.zeros(b_size, n_points)
-        for i in range(n_points):
+        for i in range(n_points): # 하나씩 sample 늘려가면서 error 계산 
             xs_comb = torch.cat((xs[:, :i, :], xs_p[:, i:, :]), dim=1)
             ys = task.evaluate(xs_comb)
 
@@ -191,7 +191,7 @@ def eval_model(
 
 def build_evals(conf):
     n_dims = conf.model.n_dims
-    n_points = conf.training.curriculum.points.end
+    n_points = conf.training.curriculum.points.end # 이게 뭐지?
     batch_size = conf.training.batch_size
 
     task_name = conf.training.task
@@ -288,7 +288,7 @@ def compute_evals(all_models, evaluation_kwargs, save_path=None, recompute=False
 
 
 def get_run_metrics(
-    run_path, step=-1, cache=True, skip_model_load=False, skip_baselines=False
+    run_path, step=-1, cache=True, skip_model_load=False, skip_baselines=True
 ):
     if skip_model_load:
         _, conf = get_model_from_run(run_path, only_conf=True)

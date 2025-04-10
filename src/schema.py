@@ -3,6 +3,7 @@ from quinine import (
     tinteger,
     tfloat,
     tboolean,
+    tlist,
     stdict,
     tdict,
     default,
@@ -65,10 +66,13 @@ wandb_schema = {
     "log_every_steps": merge(tinteger, default(10)),
 }
 
+
 schema = {
     "out_dir": merge(tstring, required),
     "model": stdict(model_schema),
     "training": stdict(training_schema),
     "wandb": stdict(wandb_schema),
     "test_run": merge(tboolean, default(False)),
+    "gpu_start": merge(tinteger, default(0)),
+    "gpu_num": merge(tinteger, default(1)),
 }

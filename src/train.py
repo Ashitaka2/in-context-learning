@@ -13,10 +13,18 @@ from samplers import get_data_sampler
 from curriculum import Curriculum
 from schema import schema
 from models import build_model
+import numpy as np
 
 import wandb
 
 torch.backends.cudnn.benchmark = True
+
+def strip_module_prefix(state_dict):
+    from collections import OrderedDict
+    return OrderedDict(
+        (k.replace("module.", "") if k.startswith("module.") else k, v)
+        for k, v in state_dict.items()
+    )
 
 
 def train_step(model, xs, ys, optimizer, loss_func):
@@ -49,7 +57,11 @@ def train(model, args):
         for i in range(state["train_step"] + 1):
             curriculum.update()
 
-    n_dims = model.n_dims
+    # n_dims = model.n_dims
+    # Modified n_dims access 
+    n_dims = model.module.n_dims if isinstance(model, torch.nn.DataParallel) else model.n_dims
+
+
     bsize = args.training.batch_size
     data_sampler = get_data_sampler(args.training.data, n_dims=n_dims)
     task_sampler = get_task_sampler(
@@ -118,8 +130,10 @@ def train(model, args):
 
         pbar.set_description(f"loss {loss}")
         if i % args.training.save_every_steps == 0 and not args.test_run:
+            raw_state_dict = strip_module_prefix(model.state_dict())
             training_state = {
-                "model_state_dict": model.state_dict(),
+                # "model_state_dict": model.state_dict(),
+                "model_state_dict": raw_state_dict,
                 "optimizer_state_dict": optimizer.state_dict(),
                 "train_step": i,
             }
@@ -131,7 +145,10 @@ def train(model, args):
             and not args.test_run
             and i > 0
         ):
-            torch.save(model.state_dict(), os.path.join(args.out_dir, f"model_{i}.pt"))
+            # print(f"model.state.dict is {model.state_dict()}")
+            raw_state_dict = strip_module_prefix(model.state_dict())
+            torch.save(raw_state_dict, os.path.join(args.out_dir, f"model_{i}.pt"))
+            # torch.save(model.state_dict(), os.path.join(args.out_dir, f"model_{i}.pt"))
 
 
 def main(args):
@@ -150,15 +167,57 @@ def main(args):
             name=args.wandb.name,
             resume=True,
         )
+    
+    args.gpu = list(range(args.gpu_start, args.gpu_start + args.gpu_num))
+    # print(f"args.gpu is {gpu}")
+    if isinstance(args.gpu, list):
+        device = torch.device(f"cuda:{args.gpu[0]}")
+        available_gpus = ','.join(map(str, args.gpu))
+        torch.cuda.set_device(device)
+        print(f"Using GPUs: {available_gpus}")
+    else:
+        device = torch.device(f"cuda:{args.gpu}")
 
     model = build_model(args.model)
-    model.cuda()
-    model.train()
+    if isinstance(args.gpu, list) and len(args.gpu) > 1:
+        model = torch.nn.DataParallel(model, device_ids=args.gpu)
+    print("device: ", device)
+    model.to(device)
+    # model.cuda()
 
+    model.train()
     train(model, args)
 
     if not args.test_run:
-        _ = get_run_metrics(args.out_dir)  # precompute metrics for eval
+        # _ = get_run_metrics(args.out_dir)  # precompute metrics for eval
+        eval_metrics = get_run_metrics(args.out_dir) 
+
+
+    # wandb metric record
+    if args.wandb and not args.test_run:
+        eval_metrics = eval_metrics['standard']
+        eval_models = list(eval_metrics.keys())
+        plot_y = []
+
+        val_acc = eval_metrics[model.module.name if isinstance(model, torch.nn.DataParallel) else model.name]['mean']
+        mean_val_acc = np.mean(val_acc)
+
+        wandb.log({"mean_val_acc": mean_val_acc})
+
+        for model_name in eval_models:
+            plot_y.append(eval_metrics[model_name]['mean'])
+        plot_x = list(range(len(plot_y[0])))
+
+        wandb.log({
+            'eval/mean_acc': wandb.plot.line_series(
+                plot_x,
+                plot_y,
+                keys=eval_models,
+                title='Accuracy of Different Models',
+                xname='Incontext Examples'
+            )
+        })
+    
 
 
 if __name__ == "__main__":
