@@ -4,6 +4,7 @@ inherit:
 
 model:
     n_layer: 12
+    pos_emb: False
 
 training:
     task: linear_regression
@@ -13,7 +14,6 @@ training:
             end: 41
             inc: 2
             interval: 2000
-    train_steps: 51
 
 # out_dir: ./models/linear_regression
 out_dir: ./models/linear_regression_nope
@@ -22,5 +22,5 @@ gpu_start: 0
 gpu_num: 4
 
 wandb:
-    name: "linear_regression"
-    notes: "linear_regression_nope"
+    name: "lin_nope_depth12"
+    notes: "linear_regression_nope depth12"

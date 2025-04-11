@@ -21,6 +21,7 @@ model_schema = {
     "n_embd": merge(tinteger, required),
     "n_layer": merge(tinteger, required),
     "n_head": merge(tinteger, required),
+    "pos_emb": merge(tboolean, default(True)),
 }
 
 curriculum_base_schema = {

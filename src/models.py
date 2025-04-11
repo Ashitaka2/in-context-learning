@@ -19,6 +19,7 @@ def build_model(conf):
             n_embd=conf.n_embd,
             n_layer=conf.n_layer,
             n_head=conf.n_head,
+            pos_emb=conf.pos_emb,
         )
     else:
         raise NotImplementedError
@@ -78,7 +79,7 @@ def get_relevant_baselines(task_name):
 
 
 class TransformerModel(nn.Module):
-    def __init__(self, n_dims, n_positions, n_embd=128, n_layer=12, n_head=4):
+    def __init__(self, n_dims, n_positions, n_embd=128, n_layer=12, n_head=4, pos_emb=True):
         super(TransformerModel, self).__init__()
         configuration = GPT2Config(
             n_positions=2 * n_positions,
@@ -98,9 +99,11 @@ class TransformerModel(nn.Module):
         
         self._backbone = GPT2Model(configuration)
         # Zero out the positional embeddings to emulate NoPE
-        with torch.no_grad():
-            self._backbone.wpe.weight.zero_()
-        self._backbone.wpe.weight.requires_grad = False
+        
+        if pos_emb is not True:
+            with torch.no_grad():
+                self._backbone.wpe.weight.zero_()
+            self._backbone.wpe.weight.requires_grad = False
 
         self._read_out = nn.Linear(n_embd, 1)
 
@@ -128,7 +131,10 @@ class TransformerModel(nn.Module):
                 raise ValueError("inds contain indices where xs and ys are not defined")
         zs = self._combine(xs, ys)
         embeds = self._read_in(zs)
+        
+        # debugging
         # print(self._backbone.wpe.weight)
+        
         output = self._backbone(inputs_embeds=embeds).last_hidden_state
         prediction = self._read_out(output)
         return prediction[:, ::2, 0][:, inds]  # predict only on xs
