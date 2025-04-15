@@ -3,7 +3,7 @@ inherit:
 
 
 model:
-    n_layer: 12
+    n_layer: 6
     pos_emb: False
 
 training:
@@ -19,8 +19,8 @@ training:
 out_dir: ./models/linear_regression_nope
 
 gpu_start: 0
-gpu_num: 4
+gpu_num: 1
 
 wandb:
-    name: "lin_nope_depth12"
-    notes: "linear_regression_nope depth12"
+    name: "lin_nope_depth6"
+    notes: "linear_regression_nope depth6"

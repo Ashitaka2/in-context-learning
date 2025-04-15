@@ -79,21 +79,21 @@ class LinearRegression(Task):
         super(LinearRegression, self).__init__(n_dims, batch_size, pool_dict, seeds)
         self.scale = scale
 
-        if pool_dict is None and seeds is None:
+        if pool_dict is None and seeds is None: # If seed is not specified, weight is randomly sampled from N(0, I_d)
             self.w_b = torch.randn(self.b_size, self.n_dims, 1)
-        elif seeds is not None:
+        elif seeds is not None: # Seed is specified. 
             self.w_b = torch.zeros(self.b_size, self.n_dims, 1)
             generator = torch.Generator()
             assert len(seeds) == self.b_size
             for i, seed in enumerate(seeds):
                 generator.manual_seed(seed)
                 self.w_b[i] = torch.randn(self.n_dims, 1, generator=generator)
-        else:
+        else: # w is chosen beforehand. 
             assert "w" in pool_dict
             indices = torch.randperm(len(pool_dict["w"]))[:batch_size]
             self.w_b = pool_dict["w"][indices]
 
-    def evaluate(self, xs_b):
+    def evaluate(self, xs_b): 
         w_b = self.w_b.to(xs_b.device)
         ys_b = self.scale * (xs_b @ w_b)[:, :, 0]
         return ys_b
@@ -109,6 +109,7 @@ class LinearRegression(Task):
     @staticmethod
     def get_training_metric():
         return mean_squared_error
+
 
 
 class SparseLinearRegression(LinearRegression):

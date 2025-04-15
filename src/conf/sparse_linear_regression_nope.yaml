@@ -3,7 +3,7 @@ inherit:
 
 model:
     n_layer: 1
-    pos_emb: True
+    pos_emb: False
 
 training:
     task: sparse_linear_regression
@@ -15,12 +15,12 @@ training:
             inc: 2
             interval: 2000
 
-out_dir: ./models/sparse_linear_regression
+out_dir: ./models/sparse_linear_regression_nope
 
-gpu_start: 1
+gpu_start: 3
 gpu_num: 1
 
 wandb:
-    name: "sparse_regression_base_depth1"
-    notes: "sparse_linear_base depth1"
+    name: "sparse_regression_nope_depth1"
+    notes: "sparse_linear_nope depth1"
 
