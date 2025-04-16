@@ -30,7 +30,7 @@ def strip_module_prefix(state_dict):
 def train_step(model, xs, ys, optimizer, loss_func):
     optimizer.zero_grad()
     output = model(xs, ys)
-    loss = loss_func(output, ys)
+    loss = loss_func(output, ys) # Look at model forward mechanism
     loss.backward()
     optimizer.step()
     return loss.detach().item(), output.detach()
@@ -58,12 +58,16 @@ def train(model, args):
             curriculum.update()
 
     # n_dims = model.n_dims
+    
+    
     # Modified n_dims access 
     n_dims = model.module.n_dims if isinstance(model, torch.nn.DataParallel) else model.n_dims
 
 
     bsize = args.training.batch_size
-    data_sampler = get_data_sampler(args.training.data, n_dims=n_dims)
+    # print(f"bsize : {bsize}")
+    # print(f"curriculum.n_points : {curriculum.n_points}") # 여기서 지금 11 뜸. Curriculum learning 때문에 task_sampler에서 n_point는 여기서 argument으로 들어가면 안됨. 
+    data_sampler = get_data_sampler(args.training.data, n_dims=n_dims) # context xs 생성
     task_sampler = get_task_sampler(
         args.training.task,
         n_dims,
@@ -71,8 +75,11 @@ def train(model, args):
         num_tasks=args.training.num_tasks,
         **args.training.task_kwargs,
     )
+        
     pbar = tqdm(range(starting_step, args.training.train_steps))
 
+    
+    
     num_training_examples = args.training.num_training_examples
 
     for i in pbar:
@@ -87,19 +94,33 @@ def train(model, args):
             data_sampler_args["seeds"] = seeds
             task_sampler_args["seeds"] = [s + 1 for s in seeds]
 
-        xs = data_sampler.sample_xs(
-            curriculum.n_points,
-            bsize,
-            curriculum.n_dims_truncated,
-            **data_sampler_args,
-        )
-        task = task_sampler(**task_sampler_args)
-        ys = task.evaluate(xs)
+        if "niah" in args.training.task:
+            xs, needle_index = data_sampler.sample_xs(
+                curriculum.n_points, # start 11 ~ end 41임. 
+                bsize,
+                curriculum.n_dims_truncated,
+                **data_sampler_args,
+            )
+            task = task_sampler(**task_sampler_args)
+            # ys = task.evaluate(xs, needle_index) # ys = one-hot vector # OK, so this is cross-entropy version
+            ys = needle_index # for MSE loss
+            
+        else:
+            xs = data_sampler.sample_xs(
+                curriculum.n_points, # start 11 ~ end 41임. 
+                bsize,
+                curriculum.n_dims_truncated,
+                **data_sampler_args,
+            )
+            task = task_sampler(**task_sampler_args)
+            ys = task.evaluate(xs)
 
         loss_func = task.get_training_metric()
 
         loss, output = train_step(model, xs.cuda(), ys.cuda(), optimizer, loss_func)
 
+
+        # 이 부분 확인해보고
         point_wise_tags = list(range(curriculum.n_points))
         point_wise_loss_func = task.get_metric()
         point_wise_loss = point_wise_loss_func(output, ys.cuda()).mean(dim=0)
@@ -117,9 +138,9 @@ def train(model, args):
                 {
                     "overall_loss": loss,
                     "excess_loss": loss / baseline_loss,
-                    "pointwise/loss": dict(
-                        zip(point_wise_tags, point_wise_loss.cpu().numpy())
-                    ),
+                    # "pointwise/loss": dict(
+                    #     zip(point_wise_tags, point_wise_loss.cpu().numpy())
+                    # ),
                     "n_points": curriculum.n_points,
                     "n_dims": curriculum.n_dims_truncated,
                 },
@@ -186,13 +207,16 @@ def main(args):
     # model.cuda()
 
     model.train()
-    train(model, args)
+    train(model, args) # do the training
+
+
+    # XXTODOXX write the evaluation code for NIAH TASK
 
     if not args.test_run:
         # _ = get_run_metrics(args.out_dir)  # precompute metrics for eval
         eval_metrics = get_run_metrics(args.out_dir) 
 
-
+    
     # wandb metric record
     if args.wandb and not args.test_run:
         eval_metrics = eval_metrics['standard']

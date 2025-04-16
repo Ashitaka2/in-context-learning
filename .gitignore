@@ -3,4 +3,4 @@ __pycache__
 models.zip
 models
 
-src/conf
+src/conf/linear_regression*

@@ -13,14 +13,24 @@ from base_models import NeuralNetwork, ParallelNetworks
 
 def build_model(conf):
     if conf.family == "gpt2":
-        model = TransformerModel(
-            n_dims=conf.n_dims,
-            n_positions=conf.n_positions,
-            n_embd=conf.n_embd,
-            n_layer=conf.n_layer,
-            n_head=conf.n_head,
-            pos_emb=conf.pos_emb,
-        )
+        if conf.icl is True:    
+            model = TransformerModel_icl(
+                n_dims=conf.n_dims,
+                n_positions=conf.n_positions,
+                n_embd=conf.n_embd,
+                n_layer=conf.n_layer,
+                n_head=conf.n_head,
+                pos_emb=conf.pos_emb,
+            )
+        else:
+            model = TransformerModel(
+                n_dims=conf.n_dims,
+                n_positions=conf.n_positions,
+                n_embd=conf.n_embd,
+                n_layer=conf.n_layer,
+                n_head=conf.n_head,
+                pos_emb=conf.pos_emb,
+            )
     else:
         raise NotImplementedError
 
@@ -78,9 +88,9 @@ def get_relevant_baselines(task_name):
     return models
 
 
-class TransformerModel(nn.Module):
+class TransformerModel_icl(nn.Module):
     def __init__(self, n_dims, n_positions, n_embd=128, n_layer=12, n_head=4, pos_emb=True):
-        super(TransformerModel, self).__init__()
+        super(TransformerModel_icl, self).__init__()
         configuration = GPT2Config(
             n_positions=2 * n_positions,
             n_embd=n_embd,
@@ -118,7 +128,7 @@ class TransformerModel(nn.Module):
             ),
             axis=2,
         )
-        zs = torch.stack((xs_b, ys_b_wide), dim=2)
+        zs = torch.stack((xs_b, ys_b_wide), dim=2) # stack it with respect to new dimension 2
         zs = zs.view(bsize, 2 * points, dim)
         return zs
 
@@ -135,9 +145,59 @@ class TransformerModel(nn.Module):
         # debugging
         # print(self._backbone.wpe.weight)
         
-        output = self._backbone(inputs_embeds=embeds).last_hidden_state
-        prediction = self._read_out(output)
-        return prediction[:, ::2, 0][:, inds]  # predict only on xs
+        output = self._backbone(inputs_embeds=embeds).last_hidden_state # Use inputs_embeds if u directly plug this (not using wte)
+        prediction = self._read_out(output) # read_out: pointwise FFNN
+        return prediction[:, ::2, 0][:, inds]  # predict only on xs # prediction f(x_1), f(x_2), ..., f(x_n) 으로 이루어진 array가 output # [B, T, 1]
+    
+    
+    
+
+class TransformerModel(nn.Module):
+    def __init__(self, n_dims, n_positions, n_embd=128, n_layer=12, n_head=4, pos_emb=True):
+        super(TransformerModel, self).__init__()
+        configuration = GPT2Config(
+            n_positions=2 * n_positions, # Maximum context length (set to be longer than we need)
+            n_embd=n_embd,
+            n_layer=n_layer,
+            n_head=n_head,
+            resid_pdrop=0.0,
+            embd_pdrop=0.0,
+            attn_pdrop=0.0,
+            use_cache=False,
+        )
+        self.name = f"gpt2_embd={n_embd}_layer={n_layer}_head={n_head}"
+
+        self.n_positions = n_positions
+        self.n_dims = n_dims
+        self._read_in = nn.Linear(n_dims, n_embd)
+        
+        self._backbone = GPT2Model(configuration)
+        # Zero out the positional embeddings to emulate NoPE
+        
+        if pos_emb is not True:
+            with torch.no_grad():
+                self._backbone.wpe.weight.zero_()
+            self._backbone.wpe.weight.requires_grad = False
+
+        self._read_out = nn.Linear(n_embd, 1)
+
+
+    def forward(self, xs, ys): # for MSE Loss # x : [B, n_points, 1] # output : [B, 1]        
+        
+        # b, n_points, _ = xs.shape
+        
+        embeds = self._read_in(xs) 
+        
+        # debugging
+        # print(self._backbone.wpe.weight)
+        
+        output = self._backbone(inputs_embeds=embeds).last_hidden_state # last hidden state [B, T, C] 
+
+        output = output[:, -1, :]  # pick out the last token   # output shape: [B, n_embd] 
+
+        prediction = self._read_out(output) # prediction [B, 1]
+        return prediction
+
 
 
 class NNModel:

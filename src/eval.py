@@ -23,11 +23,11 @@ def get_model_from_run(run_path, step=-1, only_conf=False):
 
     model = models.build_model(conf.model)
 
-    if step == -1:
+    if step == -1: # train된 최종 state를 불러옴
         state_path = os.path.join(run_path, "state.pt")
         state = torch.load(state_path)
         model.load_state_dict(state["model_state_dict"])
-    else:
+    else: # training step을 specify하면 그 step의 모델을 불러옴
         model_path = os.path.join(run_path, f"model_{step}.pt")
         state_dict = torch.load(model_path)
         model.load_state_dict(state_dict)
@@ -191,7 +191,7 @@ def eval_model(
 
 def build_evals(conf):
     n_dims = conf.model.n_dims
-    n_points = conf.training.curriculum.points.end # 이게 뭐지?
+    n_points = conf.training.curriculum.points.end 
     batch_size = conf.training.batch_size
 
     task_name = conf.training.task

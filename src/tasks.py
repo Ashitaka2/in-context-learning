@@ -29,6 +29,7 @@ class Task:
     def __init__(self, n_dims, batch_size, pool_dict=None, seeds=None):
         self.n_dims = n_dims
         self.b_size = batch_size
+        
         self.pool_dict = pool_dict
         self.seeds = seeds
         assert pool_dict is None or seeds is None
@@ -60,6 +61,7 @@ def get_task_sampler(
         "quadratic_regression": QuadraticRegression,
         "relu_2nn_regression": Relu2nnRegression,
         "decision_tree": DecisionTree,
+        "niah": NeedleInHaystack,
     }
     if task_name in task_names_to_classes:
         task_cls = task_names_to_classes[task_name]
@@ -111,6 +113,44 @@ class LinearRegression(Task):
         return mean_squared_error
 
 
+
+class NeedleInHaystack(Task):
+    def __init__(self, n_dims, batch_size, pool_dict=None, seeds=None):
+        """
+        needle_strength: Controls how distinct the needle signal is if you choose to inject it.
+        In this task, the model must predict the index (location) of the needle.
+        """
+        super(NeedleInHaystack, self).__init__(n_dims, batch_size, pool_dict, seeds)
+
+    def evaluate(self, xs, needle_index):
+        bsize, n_points, _ = xs.shape # [B, n_points, n_dim=1]
+        # bsize, _ = needle_index.shape # [B, 1]
+        one_hot = torch.zeros(bsize, n_points)
+        for i in range(bsize):
+            one_hot[i, needle_index[i, 0]] += 1
+        
+        one_hot.unsqueeze(-1)
+        print(f"one hot size : {one_hot.shape}")
+        return one_hot # [B, n_points, 1]
+
+    # @staticmethod
+    # def generate_pool_dict(n_dims, num_tasks, needle_strength=10, **kwargs):
+    #     """
+    #     Precompute a pool of needle indices for num_tasks.
+    #     This allows you to sample different task instances reproducibly.
+    #     """
+    #     needle_indices = torch.randint(low=0, high=n_dims, size=(num_tasks,))
+    #     return {"needle_indices": needle_indices}
+
+    @staticmethod
+    def get_metric():
+        # return cross_entropy
+        return mean_squared_error
+
+    @staticmethod
+    def get_training_metric():
+        # Return the metric for training; often the same as evaluation.
+        return mean_squared_error
 
 class SparseLinearRegression(LinearRegression):
     def __init__(
@@ -343,3 +383,5 @@ class DecisionTree(Task):
     @staticmethod
     def get_training_metric():
         return mean_squared_error
+
+

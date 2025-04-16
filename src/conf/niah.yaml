@@ -2,11 +2,14 @@ inherit:
     - base.yaml
 
 model:
-    n_layer: 9
+    n_layer: 12
     pos_emb: True
+    icl: False
 
 training:
-    task: linear_regression
+    task: niah
+    data: needle
+    train_steps: 50001
     curriculum:
         points:
             start: 11
@@ -14,13 +17,13 @@ training:
             inc: 2
             interval: 2000
 
-out_dir: ./models/linear_regression
+out_dir: ./models/niah
 
-gpu_start: 2
+gpu_start: 0
 gpu_num: 1
 
 wandb:
-    name: "lin_base_depth9"
-    notes: "linear_regression_base depth9 (for reproducing purposes)"
+    name: "test"
+    notes: "niah test"
 
 # test_run: True

@@ -1,9 +1,8 @@
 inherit: 
     - base.yaml
 
-
 model:
-    n_layer: 6
+    n_layer: 12
     pos_emb: False
 
 training:
@@ -15,12 +14,11 @@ training:
             inc: 2
             interval: 2000
 
-# out_dir: ./models/linear_regression
 out_dir: ./models/linear_regression_nope
 
-gpu_start: 0
+gpu_start: 3
 gpu_num: 1
 
 wandb:
-    name: "lin_nope_depth6"
-    notes: "linear_regression_nope depth6"
+    name: "lin_nope_depth12"
+    notes: "linear_regression_nope depth12"
