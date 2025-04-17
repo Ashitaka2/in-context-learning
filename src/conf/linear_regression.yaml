@@ -1,6 +1,9 @@
 inherit: 
     - base.yaml
 
+model:
+    n_layer: 6
+
 training:
     task: linear_regression
     curriculum:
@@ -10,7 +13,7 @@ training:
             inc: 2
             interval: 2000
 
-out_dir: ../models/linear_regression
+out_dir: ./models/linear_regression
 
 wandb:
-    name: "linear_regression_standard"
+    name: "linear_regression_depth6 (for reproduction)"
